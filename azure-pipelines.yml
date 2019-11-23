@@ -1,0 +1,109 @@
+# Node.js Express Web App to Linux on Azure
+# Build a Node.js Express app and deploy it to Azure as a Linux web app.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
+
+trigger:
+- master
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  azureSubscription: 'e6e574c8-bd6b-4e1b-b4c5-eb5dbc3ad48c'
+  webAppName: 'workshop-node'
+  resourceGroupName: 'workshop-node'
+  dockerRegistryServiceConnection: '904ff204-93f0-4b3a-a6f5-0fc61ce04d39'
+  imageRepository: 'workshopnode'
+  containerRegistry: 'workshopnode.azurecr.io'
+  dockerfilePath: '**/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+steps:
+  # install dependencies
+  - script: npm install
+    displayName: npm install
+    
+  # run unit tests
+  - script: ./node_modules/jasmine/bin/jasmine.js ./spec/jasmine_examples/PlayerSpec.js
+    displayName: run unit tests
+
+  # containerize the app & push to azure container registry
+  - task: Docker@2
+    displayName: Build & push image to container registry
+    inputs:
+      command: buildAndPush
+      repository: $(imageRepository)
+      dockerfile: $(dockerfilePath)
+      containerRegistry: $(dockerRegistryServiceConnection)
+      tags: |
+        $(tag)
+        deployment-image
+
+  # # install dependencies
+  # - script: npm install
+  #   displayName: npm install
+
+  # # create a zip package for deployment
+  # - task: ArchiveFiles@2
+  #   displayName: 'Archive files'
+  #   inputs:
+  #     rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
+  #     includeRootFolder: false
+  #     archiveType: zip
+  #     archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+  #     replaceExistingArchive: true
+
+  # # publish the zip package (if needed for troubleshooting later)
+  # - task: PublishPipelineArtifact@1
+  #   inputs:
+  #     targetPath: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+  #     artifactName: drop
+
+  # # stop app service
+  # - task: AzureAppServiceManage@0
+  #   displayName: stop app service
+  #   inputs:
+  #     azureSubscription: $(azureSubscription)
+  #     action: 'Stop Azure App Service'
+  #     webAppName: $(webAppName)
+  #     resourceGroupName: $(resourceGroupName)
+
+  # # deploy to app service
+  # - task: AzureRMWebAppDeployment@4
+  #   displayName: deploy to app service
+  #   inputs:
+  #     azureSubscription: $(azureSubscription)
+  #     appType: webAppLinux
+  #     webAppName: $(webAppName)
+  #     resourceGroupName: $(resourceGroupName)
+  #     package: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+  #     removeAdditionalFilesFlag: true
+  #     excludeFilesFromAppDataFlag: true
+  #     enableCustomDeployment: true
+  #     DeploymentType: runFromPackage
+  #     runtimeStack: 'NODE|10.10'
+  #     StartupCommand: 'npm run start'
+
+  # # deploy to app service
+  # - task: AzureWebApp@1
+  #   displayName: deploy to app service
+  #   inputs:
+  #     azureSubscription: $(azureSubscription)
+  #     appType: webAppLinux
+  #     appName: $(webAppName)
+  #     resourceGroupName: $(resourceGroupName)
+  #     package: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+  #     deploymentMethod: runFromPackage
+  #     runtimeStack: 'NODE|10.16'
+  #     startUpCommand: 'npm install && npm start'
+
+  # # start app service
+  # - task: AzureAppServiceManage@0
+  #   displayName: start app service
+  #   inputs:
+  #     azureSubscription: $(azureSubscription)
+  #     action: 'Start Azure App Service'
+  #     webAppName: $(webAppName)
+  #     resourceGroupName: $(resourceGroupName)
+
